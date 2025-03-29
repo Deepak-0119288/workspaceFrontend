@@ -149,6 +149,8 @@ export class CQWorkspacesClient extends (EventEmitter as new () => TypedEmitter<
 			this._detachSocketListeners,
 			this.removeAllListeners.bind(this),
 		);
+
+        window.addEventListener('beforeunload', this.handleBrowserClose.bind(this));
 	}
 
 	private _attachClientListeners = (): void => { };
@@ -322,6 +324,28 @@ export class CQWorkspacesClient extends (EventEmitter as new () => TypedEmitter<
 		}
 	};
 
+	newLogin = async (loginPayload: {
+		email: string;
+		password: string;
+		otp: string;
+	}): Promise<any> => {
+		try {
+			const response = await axios.post(
+                'http://localhost:5555/auth/verify-otp',
+                loginPayload,
+                { withCredentials: true },
+            );
+
+			if (response.data.error) {
+				throw new Error(response.data.error);
+			}
+			this.getSessionData();
+			this.connectSocket();
+		} catch (error: any) {
+			throw new Error(error?.message ?? 'Somthing went wrong try again.');
+		}
+	};
+
 	signup = async (signupPayload: any): Promise<any> => {
 		try {
 			const response = await this._cqAPI.post('/auth/signup', signupPayload);
@@ -377,6 +401,16 @@ export class CQWorkspacesClient extends (EventEmitter as new () => TypedEmitter<
 			throw new Error(error?.mentions ?? 'Something went wrong try again.');
 		}
 	};
+
+	handleBrowserClose = async () => {
+        try {
+            navigator.sendBeacon('http://localhost:5555/auth/browserClose', JSON.stringify({}));
+            await axios.post('http://localhost:5555/auth/browserClose', {}, { withCredentials: true });
+			window.location.reload();
+        } catch (error) {
+            console.error('Logout on close failed:', error);
+        }
+    };
 
 	getSessionData = async (): Promise<any> => {
 		try {

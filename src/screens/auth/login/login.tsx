@@ -9,29 +9,44 @@ import { AuthModal } from '../../../components/authModal';
 
 const appStoreSelector = (state: AppState) => ({
 	loginRequest: state.login,
+	newLoginRequest: state.newLogin,
 });
 
 export const Login:React.FunctionComponent = () => {
-	const { loginRequest } = useAppStore(appStoreSelector);
+	const { loginRequest, newLoginRequest } = useAppStore(appStoreSelector);
 	const [loading, setLoading] = useState<boolean>(false);
-
+	const [showOtpField, setShowOtpField] = useState<boolean>(false);
+	const [form] = Form.useForm();
 	const handleLoginFormSubmit = useCallback(async (value: any) => {
 		setLoading(true);
 		try {
 			console.log(value);
-			await loginRequest(value);
-		} catch (error:any) {
-			message.error(error?.message ?? error);
-			setLoading(false);
-		}
+			if (!showOtpField) {
+                await loginRequest(value);
+                // setLoading(false);
+            } else {
+                await newLoginRequest(value);
+                // setLoading(false);
+            }
+			// await loginRequest(value);
+		} catch (error: any) {
+            if (error.message === 'OTP sent for verification. Please check your email.') {
+                setShowOtpField(true);
+                message.info('An OTP has been sent to your email. Please enter it to verify.');
+            } else {
+                message.error(error?.message ?? error);
+            }
+            setLoading(false);
+        }
 
 		console.log(value);
-	}, [loginRequest]);
+	}, [loginRequest, newLoginRequest, showOtpField]);
 
 	return (
 		<AuthModal title="Login Into Your Account">
 			<>
 				<Form
+					form={(form)}
 					layout="vertical"
 					onFinish={handleLoginFormSubmit}
 					className={style.formOnly}
@@ -79,6 +94,22 @@ export const Login:React.FunctionComponent = () => {
 							<Link className={style.forgotPasswordLink} to="/forgot">Forgot Password</Link>
 						</div>
 					</div>
+                    {/* Conditionally render OTP field */}
+					{showOtpField && (
+                        <Form.Item
+                            label="OTP"
+                            name="otp"
+                            requiredMark="optional"
+                            rules={[
+                                { required: true, message: 'Please enter the OTP!' },
+                                { len: 4, message: 'OTP must be 4 digits!' },
+                                { pattern: /^\d+$/, message: 'OTP must contain only digits!' },
+                            ]}
+                        >
+                            <Input placeholder="Enter the 4-digit OTP" maxLength={4} />
+                        </Form.Item>
+                    )}
+
 					<Form.Item>
 						<div className={style.actionButton}>
 							<Button
@@ -88,7 +119,7 @@ export const Login:React.FunctionComponent = () => {
 								loading={loading}
 								className={style.loginButton}
 							>
-								Login
+								{showOtpField ? 'Verify OTP' : 'Login'}
 							</Button>
 							<p style={{ marginBottom: '0px' }}>
 								Don&apos;t have an account?&nbsp;&nbsp;
